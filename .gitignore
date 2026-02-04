@@ -1,0 +1,12 @@
+.env.local
+.env.local.test
+node_modules/
+dist/
+build/
+.svelte-kit/
+.vite/
+.vercel/
+.output/
+venv/
+*.sqlite3
+.DS_Store
