@@ -62,7 +62,6 @@ Edit `.env.local` with your PostgreSQL credentials:
 
 ```
 DATABASE_URL=postgres://user:password@localhost:5432/coursify
-VITE_API_BASE=http://localhost:5173/api
 ```
 
 ### 4. Run Database Migrations
