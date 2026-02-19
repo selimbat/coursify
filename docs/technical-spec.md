@@ -38,9 +38,6 @@ Priorités : simplicité, maintenabilité, robustesse hors ligne.
 - updated_at (timestamp)
 - last_modified_by (enum: user_a, user_b)
 
-**Settings / Auth**
-- shared_passphrase_hash (text)
-
 ### 3.2. Règles métiers clés
 - Une seule liste template (is_template = true)
 - Le template n’a pas de date de création affichée
@@ -118,13 +115,9 @@ Chaque story est petite, testable, et livrable indépendamment.
 
 **Story 2 — Migrations DB (lists + auth)**
 - **Critères d’acceptation**
-  - Une migration crée la table `lists` avec les champs requis.
-  - Une migration crée le stockage de la phrase secrète hashée.
-  - Les migrations s’exécutent en local sans erreur.
+  - Un modèle `lists` existe dans `lib/server/db/schema.ts` avec les champs requis.
 - **Plan d’exécution**
-  1. Choisir un outil de migration compatible SvelteKit.
-  2. Définir le schéma `lists` et `settings/auth`.
-  3. Tester la création du schéma en local.
+  1. Définir le schéma `lists`.
 
 ### 9.2. Auth minimale
 **Story 3 — Accès par phrase secrète**
@@ -132,16 +125,19 @@ Chaque story est petite, testable, et livrable indépendamment.
   - Un écran de saisie de phrase secrète est disponible.
   - Une phrase valide ouvre l’app, une invalide affiche une erreur.
   - La phrase n’est jamais stockée en clair côté client.
+  - La phrase secrète est hashée et stockée dans `.env`.
+  - Les fonctions relatives à l'authentifications sont centralisés dans un fichier `lib/services/auth.service.ts`.
+  - Une fois l'utilisateur authentifié, il doit le rester via un token JWT.
 - **Plan d’exécution**
   1. Créer l’écran de login minimal.
   2. Implémenter l’endpoint de vérification.
-  3. Gérer les erreurs et la persistance de session.
+  3. Gérer les erreurs et la persistance de session grâce à des token JWT.
 
 **Story 4 — Choix de l’identité active**
 - **Critères d’acceptation**
-  - L’utilisateur peut sélectionner User A ou User B.
-  - Le choix est visible dans l’UI.
-  - Le choix est persistant entre deux sessions.
+  - L’utilisateur peut sélectionner User A ou User B lorsqu'il se connecte pour la première fois.
+  - Le choix est visible dans l’UI. => Sidebar à gauche en mode desktop et navbar sticky en bas de l'ecran en mode mobile.
+  - Le choix est persistant entre deux sessions. => Choix stocké dans le local storage
 - **Plan d’exécution**
   1. Ajouter un sélecteur d’identité simple.
   2. Stocker le choix localement.
