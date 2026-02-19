@@ -1,4 +1,5 @@
 export type ActiveUser = 'user_a' | 'user_b';
+export const ACTIVE_USERS: ActiveUser[] = ['user_a', 'user_b'];
 
 const STORAGE_KEY = 'active_user';
 
@@ -13,8 +14,8 @@ class UserService {
     init(): void {
         if (typeof localStorage === 'undefined') return;
         const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored === 'user_a' || stored === 'user_b') {
-            this.#user = stored;
+        if (stored && ACTIVE_USERS.includes(stored as ActiveUser)) {
+            this.#user = stored as ActiveUser;
         }
     }
 
