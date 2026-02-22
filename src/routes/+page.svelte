@@ -3,7 +3,6 @@
 	import { enhance } from '$app/forms';
 
 	let { data } = $props();
-
 	const statusConfig: Record<string, { label: string; class: string }> = {
 		ongoing: {
 			label: 'En cours',

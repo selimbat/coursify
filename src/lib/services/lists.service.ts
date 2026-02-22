@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { lists } from '$lib/server/db/schema';
+import { lists, type List } from '$lib/server/db/schema';
 import { desc, eq } from 'drizzle-orm';
 
 export const getAllLists = async () => {
@@ -36,4 +36,16 @@ export const createList = async (title: string = 'Nouvelle liste') => {
         })
         .returning();
     return created;
+};
+
+export const updateList = async (
+    id: string,
+    data: Partial<Pick<List, 'title' | 'status'>>
+) => {
+    const [updated] = await db
+        .update(lists)
+        .set({ ...data, updated_at: new Date() })
+        .where(eq(lists.id, id))
+        .returning();
+    return updated ?? null;
 };

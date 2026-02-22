@@ -1,7 +1,8 @@
 # UI Design
 
-When editing UI, always use the best practices in SvelteKit apps and UI components from the  [shadcn](https://www.shadcn-svelte.com/docs/components) component library. Always design as if you were an experienced web designer. 
+When editing UI, always use the best practices in SvelteKit apps and UI components from the [shadcn](https://www.shadcn-svelte.com/docs/components) component library. Always design as if you were an experienced web designer. 
 - You should never write style in Svelte components!
+- If any shadcn components you require aren't installed, you are allowed to install them.
 - You may use classes but only ones relative to positioning and layout, not theming.
 - If CSS classes are needed, you must always use tailwindcss.
 - The design has to be coherent throughout the app.

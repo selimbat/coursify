@@ -1,21 +1,12 @@
 <script lang="ts">
-	import { ArrowLeft, Calendar, BookTemplate } from '@lucide/svelte';
+	import { untrack, tick } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { ArrowLeft, Calendar, BookTemplate, Save } from '@lucide/svelte';
+	import { enhance } from '$app/forms';
+	import { Button } from '$lib/components/ui/button';
+	import type { ActiveUser } from '$lib/services/user.service.svelte';
 
 	type ListStatus = 'ongoing' | 'pending' | 'done';
-
-	interface List {
-		id: string;
-		title: string;
-		status: ListStatus;
-		markdown: string;
-		is_template: boolean;
-		created_at: Date | string | null;
-		updated_at: Date | string | null;
-		last_modified_by: 'user_a' | 'user_b' | null;
-	}
-
-	let { list }: { list: List } = $props();
-
 	const statusConfig: Record<ListStatus, { label: string; class: string }> = {
 		ongoing: {
 			label: 'En cours',
@@ -31,6 +22,35 @@
 		}
 	};
 
+	interface List {
+		id: string;
+		title: string;
+		status: ListStatus;
+		markdown: string;
+		is_template: boolean;
+		created_at: Date | string | null;
+		updated_at: Date | string | null;
+		last_modified_by: ActiveUser | null;
+	}
+
+	let { list }: { list: List } = $props();
+
+	let submitRef: (() => void) | undefined;
+
+	// Use untrack so the $state initialisation does not create a reactive dependency
+	// on `list`. The dirty check below uses `$derived` to stay reactive.
+	let title = $state(untrack(() => list.title));
+	let status = $state<ListStatus>(untrack(() => list.status));
+
+	// Only the title triggers the manual save button; status submits immediately.
+	let isDirty = $derived(title !== list.title);
+
+	async function setStatus(opt: ListStatus) {
+		status = opt;
+		await tick(); // let the hidden input update before submitting
+		submitRef?.();
+	}
+
 	function formatDate(date: Date | string | null): string {
 		if (!date) return '';
 		return new Intl.DateTimeFormat('fr-FR', {
@@ -41,32 +61,55 @@
 	}
 </script>
 
-<div class="mx-auto max-w-2xl px-4 py-6 md:px-6 md:py-8">
-	<!-- Header -->
-	<div class="mb-6 flex items-start gap-4">
-		<a
-			href="/"
-			class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border bg-card transition-colors hover:bg-accent"
-			aria-label="Retour"
-		>
-			<ArrowLeft class="size-4" />
-		</a>
+<div class="mx-auto max-w-2xl px-4 py-8 md:px-6 md:py-10">
+	<div class="flex items-start gap-4">
+		<!-- Back button -->
+		<Button href="/" variant="outline" size="icon" class="mt-1 shrink-0" aria-label="Retour">
+			<ArrowLeft />
+		</Button>
 
-		<div class="min-w-0 flex-1">
-			<div class="flex flex-wrap items-center gap-2">
+		<!-- Edit form: title + status -->
+		<form
+			{@attach (node) => {
+				submitRef = () => node.requestSubmit();
+				return () => {
+					submitRef = undefined;
+				};
+			}}
+			method="POST"
+			action="?/update"
+			use:enhance={() => {
+				return async ({ update }) => {
+					// update without resetting the form so the bound inputs keep their values
+					await update({ reset: false });
+				};
+			}}
+			class="min-w-0 flex-1"
+		>
+			<input type="hidden" name="status" value={status} />
+
+			<!-- Status pills / template badge -->
+			<div class="flex flex-wrap items-center gap-1.5">
 				{#if list.is_template}
 					<span class="flex items-center gap-1.5 text-xs text-muted-foreground">
 						<BookTemplate class="size-3.5" />
 						Modèle de liste
 					</span>
 				{:else}
-					<span
-						class="rounded-full px-2.5 py-1 text-xs font-medium {statusConfig[list.status]?.class}"
-					>
-						{statusConfig[list.status]?.label}
-					</span>
+					{#each Object.entries(statusConfig) as [opt, values] (opt)}
+						<Button
+							type="button"
+							variant={status === opt ? 'secondary' : 'ghost'}
+							size="sm"
+							onclick={() => setStatus(opt as ListStatus)}
+							class={`h-7 rounded-full px-3 text-xs ${status === opt ? values.class : ''}`}
+						>
+							{values.label}
+						</Button>
+					{/each}
+
 					{#if list.created_at}
-						<span class="flex items-center gap-1 text-xs text-muted-foreground">
+						<span class="ml-1 flex items-center gap-1 text-xs text-muted-foreground">
 							<Calendar class="size-3" />
 							{formatDate(list.created_at)}
 						</span>
@@ -74,14 +117,31 @@
 				{/if}
 			</div>
 
-			<h1 class="mt-1 text-xl leading-snug font-bold tracking-tight">
-				{list.title || (list.is_template ? 'Modèle' : 'Sans titre')}
-			</h1>
-		</div>
+			<!-- Inline title input + contextual save button -->
+			<div class="mt-1.5 flex items-center gap-3">
+				<input
+					name="title"
+					type="text"
+					bind:value={title}
+					placeholder={list.is_template ? 'Modèle' : 'Sans titre'}
+					class="min-w-0 flex-1 border-b border-transparent bg-transparent py-0.5 text-2xl font-bold tracking-tight transition-colors outline-none placeholder:text-muted-foreground/50 hover:border-border focus:border-foreground"
+				/>
+				{#if isDirty}
+					<div transition:fly={{ x: 8, duration: 150 }}>
+						<Button type="submit" size="sm" class="shrink-0">
+							<Save />
+							<span class="hidden sm:inline"> Sauvegarder </span>
+						</Button>
+					</div>
+				{/if}
+			</div>
+		</form>
 	</div>
 
+	<hr class="my-8 border-border" />
+
 	<!-- Content placeholder (Stories 10–12 will fill this) -->
-	<div class="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+	<div class="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
 		Le contenu Markdown sera disponible prochainement.
 	</div>
 </div>

@@ -17,3 +17,5 @@ export const lists = pgTable('lists', {
 		.$defaultFn(() => new Date()),
 	last_modified_by: lastModifiedByEnum('last_modified_by')
 });
+
+export type List = typeof lists.$inferSelect;
