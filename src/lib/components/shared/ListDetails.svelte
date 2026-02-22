@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack, tick } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { ArrowLeft, Calendar, BookTemplate, Save } from '@lucide/svelte';
+	import { ArrowLeft, Calendar, BookTemplate, Save, Trash2 } from '@lucide/svelte';
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
 	import type { ActiveUser } from '$lib/services/user.service.svelte';
@@ -44,6 +44,8 @@
 
 	// Only the title triggers the manual save button; status submits immediately.
 	let isDirty = $derived(title !== list.title);
+
+	let confirmDelete = $state(false);
 
 	async function setStatus(opt: ListStatus) {
 		status = opt;
@@ -115,6 +117,19 @@
 						</span>
 					{/if}
 				{/if}
+				<!-- Delete button (non-template only) -->
+				{#if !list.is_template}
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						class="ml-auto shrink-0 text-muted-foreground hover:text-destructive"
+						aria-label="Supprimer la liste"
+						onclick={() => (confirmDelete = !confirmDelete)}
+					>
+						<Trash2 class="size-4" />
+					</Button>
+				{/if}
 			</div>
 
 			<!-- Inline title input + contextual save button -->
@@ -137,6 +152,24 @@
 			</div>
 		</form>
 	</div>
+
+	<!-- Inline delete confirmation -->
+	{#if confirmDelete}
+		<div
+			transition:fly={{ y: -6, duration: 180 }}
+			class="mt-4 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3"
+		>
+			<p class="text-sm text-destructive">Supprimer cette liste définitivement ?</p>
+			<div class="flex shrink-0 items-center gap-2">
+				<Button type="button" variant="ghost" size="sm" onclick={() => (confirmDelete = false)}>
+					Annuler
+				</Button>
+				<form method="POST" action="?/delete" use:enhance>
+					<Button type="submit" variant="destructive" size="sm">Supprimer</Button>
+				</form>
+			</div>
+		</div>
+	{/if}
 
 	<hr class="my-8 border-border" />
 

@@ -1,5 +1,5 @@
-import { getListById, updateList } from '$lib/services/lists.service';
-import { error } from '@sveltejs/kit';
+import { getListById, updateList, deleteList } from '$lib/services/lists.service';
+import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { List } from '$lib/server/db/schema';
 
@@ -30,5 +30,13 @@ export const actions: Actions = {
         if (!updated) error(404, 'Liste introuvable');
 
         return { success: true };
+    },
+
+    delete: async ({ params }) => {
+        const list = await getListById(params.id);
+        if (!list) error(404, 'Liste introuvable');
+
+        await deleteList(params.id);
+        redirect(303, '/');
     }
 };

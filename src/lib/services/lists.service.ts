@@ -49,3 +49,11 @@ export const updateList = async (
         .returning();
     return updated ?? null;
 };
+
+export const deleteList = async (id: string) => {
+    const [deleted] = await db
+        .delete(lists)
+        .where(eq(lists.id, id))
+        .returning();
+    return deleted ?? null;
+};
