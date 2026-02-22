@@ -207,13 +207,13 @@ Chaque story est petite, testable, et livrable indépendamment.
 
 **Story 11 — Rendu Markdown synchronisé**
 - **Critères d’acceptation**
-  - Le rendu est visible à côté ou en dessous de l’éditeur.
-  - Le rendu se met à jour lors des modifications.
+  - Le rendu est visible dans le même champ que l'édition.
+  - La ligne que l'utilisateur est en train de modifier montre la syntaxe markdown, les autres lignes montrent le rendu markdown.
   - Le rendu reste lisible sur mobile.
 - **Plan d’exécution**
-  1. Choisir un renderer Markdown compatible.
+  1. Choisir un renderer Markdown compatible. marked ou autre si pertinent
   2. Afficher le rendu en temps quasi réel.
-  3. Ajuster le layout mobile-first.
+  3. Le layout doit rester mobile-first.
 
 **Story 12 — Checkboxes sans déplacement**
 - **Critères d’acceptation**

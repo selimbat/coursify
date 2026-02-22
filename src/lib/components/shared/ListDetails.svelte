@@ -4,6 +4,7 @@
 	import { ArrowLeft, Calendar, BookTemplate, Save, Trash2 } from '@lucide/svelte';
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
+	import MarkdownEditor from '$lib/components/shared/MarkdownEditor.svelte';
 	import type { ActiveUser } from '$lib/services/user.service.svelte';
 
 	type ListStatus = 'ongoing' | 'pending' | 'done';
@@ -41,9 +42,20 @@
 	// on `list`. The dirty check below uses `$derived` to stay reactive.
 	let title = $state(untrack(() => list.title));
 	let status = $state<ListStatus>(untrack(() => list.status));
+	let markdown = $state(untrack(() => list.markdown));
+	let isSavingMarkdown = $state(false);
+	let markdownFormRef: HTMLFormElement | null = $state(null);
 
 	// Only the title triggers the manual save button; status submits immediately.
 	let isDirty = $derived(title !== list.title);
+	let isMarkdownDirty = $derived(markdown !== list.markdown);
+
+	function handleMarkdownKeydown(e: KeyboardEvent) {
+		if ((e.ctrlKey || e.metaKey) && e.key === 's' && isMarkdownDirty) {
+			e.preventDefault();
+			markdownFormRef?.requestSubmit();
+		}
+	}
 
 	let confirmDelete = $state(false);
 
@@ -173,8 +185,52 @@
 
 	<hr class="my-8 border-border" />
 
-	<!-- Content placeholder (Stories 10–12 will fill this) -->
-	<div class="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-		Le contenu Markdown sera disponible prochainement.
-	</div>
+	<!-- Markdown editor (Story 10) -->
+	<form
+		{@attach (node) => {
+			markdownFormRef = node;
+			return () => {
+				markdownFormRef = null;
+			};
+		}}
+		method="POST"
+		action="?/saveMarkdown"
+		use:enhance={() => {
+			isSavingMarkdown = true;
+			return async ({ update }) => {
+				await update({ reset: false });
+				isSavingMarkdown = false;
+			};
+		}}
+	>
+		<MarkdownEditor
+			name="markdown"
+			bind:value={markdown}
+			onkeydown={handleMarkdownKeydown}
+			placeholder="Commencez à écrire votre liste en Markdown…
+
+- [ ] Article 1
+- [ ] Article 2"
+			class="min-h-48"
+		/>
+
+		{#if isMarkdownDirty}
+			<div
+				transition:fly={{ y: 6, duration: 150 }}
+				class="mt-3 flex items-center justify-between gap-3"
+			>
+				<p class="text-xs text-muted-foreground">Modifications non sauvegardées</p>
+				<div class="flex items-center gap-2">
+					<kbd
+						class="hidden rounded border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline"
+						>Ctrl+S</kbd
+					>
+					<Button type="submit" size="sm" disabled={isSavingMarkdown}>
+						<Save />
+						{isSavingMarkdown ? 'Sauvegarde…' : 'Sauvegarder'}
+					</Button>
+				</div>
+			</div>
+		{/if}
+	</form>
 </div>

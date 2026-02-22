@@ -40,7 +40,7 @@ export const createList = async (title: string = 'Nouvelle liste') => {
 
 export const updateList = async (
     id: string,
-    data: Partial<Pick<List, 'title' | 'status'>>
+    data: Partial<Pick<List, 'title' | 'status' | 'markdown'>>
 ) => {
     const [updated] = await db
         .update(lists)

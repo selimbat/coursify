@@ -34,7 +34,7 @@
 		<form method="POST" action="?/createList" use:enhance>
 			<button
 				type="submit"
-				class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 active:scale-95"
+				class="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 active:scale-95 sm:px-4 sm:py-2"
 			>
 				<Plus class="size-4" />
 				<span class="hidden sm:inline">Nouvelle liste</span>
