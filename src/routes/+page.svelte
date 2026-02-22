@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { ShoppingCart, BookTemplate, Calendar } from '@lucide/svelte';
+	import { ShoppingCart, BookTemplate, Calendar, Plus } from '@lucide/svelte';
+	import { enhance } from '$app/forms';
 
 	let { data } = $props();
 
@@ -31,6 +32,15 @@
 <div class="mx-auto max-w-2xl px-4 py-6 md:px-6 md:py-8">
 	<div class="mb-6 flex items-center justify-between">
 		<h1 class="text-2xl font-bold tracking-tight">Mes listes</h1>
+		<form method="POST" action="?/createList" use:enhance>
+			<button
+				type="submit"
+				class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 active:scale-95"
+			>
+				<Plus class="size-4" />
+				<span class="hidden sm:inline">Nouvelle liste</span>
+			</button>
+		</form>
 	</div>
 
 	<div class="flex flex-col gap-3">
