@@ -1,6 +1,5 @@
 <script lang="ts">
 	import './layout.css';
-	import favicon from '$lib/assets/favicon.svg';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import IdentityPicker from '$lib/components/shared/IdentityPicker.svelte';
@@ -28,8 +27,8 @@
 	});
 
 	const userLabels: Record<ActiveUser, string> = {
-		user_a: 'Utilisateur A',
-		user_b: 'Utilisateur B'
+		user_a: 'Anna',
+		user_b: 'Selim'
 	};
 
 	function selectUser(user: ActiveUser) {
@@ -43,7 +42,6 @@
 
 <svelte:head>
 	{@html webManifestLink}
-	<link rel="icon" href={favicon} />
 	<title>Sparfux</title>
 </svelte:head>
 

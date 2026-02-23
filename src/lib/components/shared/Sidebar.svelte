@@ -65,7 +65,7 @@
 							? 'border-primary bg-primary text-primary-foreground'
 							: 'border-muted-foreground/40'}"
 					>
-						{u === 'user_a' ? 'A' : 'B'}
+						{u === 'user_a' ? 'A' : 'S'}
 					</div>
 					{userLabels[u]}
 				</Button>
