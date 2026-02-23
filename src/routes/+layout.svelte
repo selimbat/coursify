@@ -8,6 +8,7 @@
 	import NetworkStatus from '$lib/components/shared/NetworkStatus.svelte';
 	import Sidebar from '$lib/components/shared/Sidebar.svelte';
 	import { userService, type ActiveUser } from '$lib/services/user.service.svelte';
+	import { offlineService } from '$lib/services/offline.service.svelte';
 	import { pwaInfo } from 'virtual:pwa-info';
 	import { registerSW } from 'virtual:pwa-register';
 
@@ -19,6 +20,7 @@
 
 	onMount(() => {
 		userService.init();
+		offlineService.init();
 		mounted = true;
 		registerSW({ immediate: true });
 	});
