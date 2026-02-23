@@ -1,8 +1,17 @@
 <script lang="ts">
-	import { ShoppingCart, BookTemplate, Calendar, Plus } from '@lucide/svelte';
+	import { ShoppingCart, BookTemplate, Calendar, Plus, Copy } from '@lucide/svelte';
 	import { enhance } from '$app/forms';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Label } from '$lib/components/ui/label';
+	import { Button } from '$lib/components/ui/button';
 
 	let { data } = $props();
+
+	let createDialogOpen = $state(false);
+	let createMode = $state<'blank' | 'template'>('blank');
+	let selectedTemplateId = $state('');
+	let includeUnchecked = $state(true);
+
 	const statusConfig: Record<string, { label: string; class: string }> = {
 		ongoing: {
 			label: 'En cours',
@@ -26,20 +35,61 @@
 			year: 'numeric'
 		}).format(new Date(date));
 	}
+
+	function handleNewListClick() {
+		createMode = 'blank';
+		includeUnchecked = true;
+		createDialogOpen = true;
+	}
+
+	function handleFromTemplateClick() {
+		createMode = 'template';
+		includeUnchecked = true;
+		selectedTemplateId = data.templates[0]?.id ?? '';
+		createDialogOpen = true;
+	}
 </script>
 
 <div class="mx-auto max-w-2xl px-4 py-6 md:px-6 md:py-8">
 	<div class="mb-6 flex items-center justify-between">
 		<h1 class="text-2xl font-bold tracking-tight">Mes listes</h1>
-		<form method="POST" action="?/createList" use:enhance>
-			<button
-				type="submit"
-				class="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 active:scale-95 sm:px-4 sm:py-2"
-			>
-				<Plus class="size-4" />
-				<span class="hidden sm:inline">Nouvelle liste</span>
-			</button>
-		</form>
+		<div class="flex items-center gap-2">
+			{#if data.templates.length > 0}
+				{#if data.templates.length === 1 && data.uncheckedItems.length === 0}
+					<!-- Single template, no unchecked items: submit directly -->
+					<form method="POST" action="?/createFromTemplate" use:enhance>
+						<input type="hidden" name="templateId" value={data.templates[0].id} />
+						<input type="hidden" name="includeUnchecked" value="false" />
+						<Button type="submit" variant="outline">
+							<Copy class="size-4" />
+							<span class="hidden sm:inline">Depuis un modèle</span>
+						</Button>
+					</form>
+				{:else}
+					<!-- Multiple templates or unchecked items: open dialog -->
+					<Button type="button" variant="outline" onclick={handleFromTemplateClick}>
+						<Copy class="size-4" />
+						<span class="hidden sm:inline">Depuis un modèle</span>
+					</Button>
+				{/if}
+			{/if}
+			{#if data.uncheckedItems.length === 0}
+				<!-- No unchecked items: submit directly -->
+				<form method="POST" action="?/createList" use:enhance>
+					<input type="hidden" name="includeUnchecked" value="false" />
+					<Button type="submit">
+						<Plus class="size-4" />
+						<span class="hidden sm:inline">Nouvelle liste</span>
+					</Button>
+				</form>
+			{:else}
+				<!-- Unchecked items exist: open dialog -->
+				<Button type="button" onclick={handleNewListClick}>
+					<Plus class="size-4" />
+					<span class="hidden sm:inline">Nouvelle liste</span>
+				</Button>
+			{/if}
+		</div>
 	</div>
 
 	<div class="flex flex-col gap-3">
@@ -113,3 +163,91 @@
 		{/if}
 	</div>
 </div>
+
+<!-- Creation dialog (blank list or from template, shown when there are unchecked items or multiple templates) -->
+{#if data.uncheckedItems.length > 0 || data.templates.length > 1}
+	<Dialog.Root bind:open={createDialogOpen}>
+		<Dialog.Content class="max-w-sm">
+			<Dialog.Header>
+				<Dialog.Title>
+					{createMode === 'template' ? 'Créer depuis un modèle' : 'Nouvelle liste'}
+				</Dialog.Title>
+				<Dialog.Description>Configurez les options de votre nouvelle liste.</Dialog.Description>
+			</Dialog.Header>
+
+			<form
+				method="POST"
+				action={createMode === 'template' ? '?/createFromTemplate' : '?/createList'}
+				use:enhance
+			>
+				{#if createMode === 'template'}
+					<input type="hidden" name="templateId" value={selectedTemplateId} />
+				{/if}
+				<input type="hidden" name="includeUnchecked" value={includeUnchecked ? 'true' : 'false'} />
+
+				<div class="flex flex-col gap-5 py-4">
+					{#if createMode === 'template' && data.templates.length > 1}
+						<div class="flex flex-col gap-2">
+							<p class="text-sm font-medium">Modèle</p>
+							{#each data.templates as template (template.id)}
+								<Label
+									class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors has-[input:checked]:border-primary has-[input:checked]:bg-primary/5"
+								>
+									<input
+										type="radio"
+										name="templateChoice"
+										value={template.id}
+										checked={selectedTemplateId === template.id}
+										onchange={() => (selectedTemplateId = template.id)}
+										class="accent-primary"
+									/>
+									<div class="flex items-center gap-2">
+										<BookTemplate class="size-4 shrink-0 text-muted-foreground" />
+										<span class="text-sm font-medium">{template.title || 'Modèle sans titre'}</span>
+									</div>
+								</Label>
+							{/each}
+						</div>
+					{/if}
+
+					{#if data.uncheckedItems.length > 0}
+						<div class="flex flex-col gap-3">
+							<Label
+								class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors has-[input:checked]:border-primary has-[input:checked]:bg-primary/5"
+							>
+								<input
+									type="checkbox"
+									checked={includeUnchecked}
+									onchange={() => (includeUnchecked = !includeUnchecked)}
+									class="accent-primary"
+								/>
+								<div>
+									<p class="text-sm leading-none font-medium">Ajouter les articles non achetés</p>
+									<p class="mt-0.5 text-xs text-muted-foreground">
+										Depuis la dernière liste de courses
+									</p>
+								</div>
+							</Label>
+							{#if includeUnchecked}
+								<ul class="ml-1 flex flex-col gap-1 rounded-lg border bg-muted/40 px-3 py-2">
+									{#each data.uncheckedItems as item (item)}
+										<li class="text-sm text-muted-foreground">
+											{item.replace(/^- \[ \] /, '')}
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+					{/if}
+				</div>
+
+				<Dialog.Footer>
+					<Button type="button" variant="outline" onclick={() => (createDialogOpen = false)}>
+						Annuler
+					</Button>
+					<Button type="submit">Créer</Button>
+				</Dialog.Footer>
+			</form>
+		</Dialog.Content>
+	</Dialog.Root>
+{/if}

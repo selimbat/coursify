@@ -3,12 +3,14 @@ import { redirect } from '@sveltejs/kit';
 import { verifyToken, AUTH_COOKIE_NAME } from '$lib/services/auth.service';
 
 const PUBLIC_ROUTES = ['/login'];
+// PWA service worker and workbox files must be accessible without auth
+const PWA_FILES = /^\/(dev-sw\.js|sw\.js|workbox-.+\.js|registerSW\.js)$/;
 
 export const handle: Handle = async ({ event, resolve }) => {
     const { pathname } = event.url;
 
     // Allow public routes through without auth check
-    if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
+    if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route)) || PWA_FILES.test(pathname)) {
         return resolve(event);
     }
 

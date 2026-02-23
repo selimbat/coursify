@@ -237,8 +237,10 @@ Chaque story est petite, testable, et livrable indépendamment.
   3. Vérifier la persistance `is_template`.
 
 **Story 14 — Créer à partir du template**
-- **Critères d’acceptation**
+- **Critères d’acceptation** 
   - Une nouvelle liste copie le Markdown du template.
+  - S'il existe plusieurs template, une modale s'affiche pour choisir quel template utiliser.
+  - Si un seul template existe, pas de modale, ce template est utilisé.
   - Le titre/statut par défaut sont appliqués.
   - La liste créée est persistée en DB.
 - **Plan d’exécution**
@@ -249,12 +251,13 @@ Chaque story est petite, testable, et livrable indépendamment.
 **Story 15 — Ajouter “Pas achetés la dernière fois”**
 - **Critères d’acceptation**
   - Les items non cochés de la dernière liste sont ajoutés.
+  - La dernière liste est celle qui a été modifiée le plus récemment.
   - La section “Pas achetés la dernière fois” est créée si absente.
   - Les items copiés conservent leur texte original.
 - **Plan d’exécution**
   1. Identifier la dernière liste non-template.
   2. Extraire les items non cochés via parsing Markdown.
-  3. Appendre la section et sauvegarder le Markdown.
+  3. Ajouter la section et sauvegarder le Markdown.
 
 ### 9.6. Offline & sync
 **Story 16 — Consultation hors ligne**

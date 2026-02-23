@@ -5,8 +5,13 @@
 	import { page } from '$app/state';
 	import IdentityPicker from '$lib/components/shared/IdentityPicker.svelte';
 	import MobileNav from '$lib/components/shared/MobileNav.svelte';
+	import NetworkStatus from '$lib/components/shared/NetworkStatus.svelte';
 	import Sidebar from '$lib/components/shared/Sidebar.svelte';
 	import { userService, type ActiveUser } from '$lib/services/user.service.svelte';
+	import { pwaInfo } from 'virtual:pwa-info';
+	import { registerSW } from 'virtual:pwa-register';
+
+	const webManifestLink = pwaInfo ? pwaInfo.webManifest.linkTag : '';
 
 	let { children } = $props();
 
@@ -15,6 +20,7 @@
 	onMount(() => {
 		userService.init();
 		mounted = true;
+		registerSW({ immediate: true });
 	});
 
 	const userLabels: Record<ActiveUser, string> = {
@@ -31,7 +37,12 @@
 	let showIdentityPicker = $derived(mounted && activeUser === null);
 </script>
 
-<svelte:head><link rel="icon" href={favicon} /></svelte:head>
+<svelte:head>
+	{@html webManifestLink}
+	<link rel="icon" href={favicon} />
+</svelte:head>
+
+<NetworkStatus />
 
 {#if isLoginPage}
 	{@render children()}
