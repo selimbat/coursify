@@ -9,6 +9,7 @@
 	import Sidebar from '$lib/components/shared/Sidebar.svelte';
 	import { userService, type ActiveUser } from '$lib/services/user.service.svelte';
 	import { offlineService } from '$lib/services/offline.service.svelte';
+	import { themeService } from '$lib/services/theme.svelte';
 	import { pwaInfo } from 'virtual:pwa-info';
 	import { registerSW } from 'virtual:pwa-register';
 
@@ -19,6 +20,7 @@
 	let mounted = $state(false);
 
 	onMount(() => {
+		themeService.init();
 		userService.init();
 		offlineService.init();
 		mounted = true;
@@ -42,6 +44,7 @@
 <svelte:head>
 	{@html webManifestLink}
 	<link rel="icon" href={favicon} />
+	<title>Sparfux</title>
 </svelte:head>
 
 <NetworkStatus />

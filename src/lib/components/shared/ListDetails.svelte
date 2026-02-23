@@ -8,20 +8,16 @@
 	import type { ActiveUser } from '$lib/services/user.service.svelte';
 	import {
 		getPendingChange,
-		setPendingChange,
+		persistPendingChange,
 		clearPendingChange
 	} from '$lib/services/pending-changes.service';
 	import { offlineService } from '$lib/services/offline.service.svelte';
 
-	type ListStatus = 'ongoing' | 'pending' | 'done';
+	type ListStatus = 'ongoing' | 'done';
 	const statusConfig: Record<ListStatus, { label: string; class: string }> = {
 		ongoing: {
 			label: 'En cours',
 			class: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-		},
-		pending: {
-			label: 'En attente',
-			class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
 		},
 		done: {
 			label: 'Faite',
@@ -107,7 +103,12 @@
 	// Note: only writes to localStorage — no Svelte state is mutated here.
 	$effect(() => {
 		if (!isOnline && markdown !== list.markdown) {
-			setPendingChange(list.id, markdown);
+			try {
+				const change = { markdown, savedAt: Date.now() };
+				localStorage.setItem(`coursify:pending:${list.id}`, JSON.stringify(change));
+			} catch {
+				// local persistence is best-effort
+			}
 		}
 	});
 
@@ -177,6 +178,7 @@
 							variant={status === opt ? 'secondary' : 'ghost'}
 							size="sm"
 							onclick={() => setStatus(opt as ListStatus)}
+							disabled={!isOnline}
 							class={`h-7 rounded-full px-3 text-xs ${status === opt ? values.class : ''}`}
 						>
 							{values.label}
@@ -190,19 +192,18 @@
 						</span>
 					{/if}
 				{/if}
-				<!-- Delete button (non-template only) -->
-				{#if !list.is_template}
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon"
-						class="ml-auto shrink-0 text-muted-foreground hover:text-destructive"
-						aria-label="Supprimer la liste"
-						onclick={() => (confirmDelete = !confirmDelete)}
-					>
-						<Trash2 class="size-4" />
-					</Button>
-				{/if}
+				<!-- Delete button -->
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon"
+					class="ml-auto shrink-0 text-muted-foreground hover:text-destructive"
+					aria-label={list.is_template ? 'Supprimer le modèle' : 'Supprimer la liste'}
+					onclick={() => (confirmDelete = !confirmDelete)}
+					disabled={!isOnline}
+				>
+					<Trash2 class="size-4" />
+				</Button>
 			</div>
 
 			<!-- Inline title input + contextual save button -->
@@ -212,11 +213,12 @@
 					type="text"
 					bind:value={title}
 					placeholder={list.is_template ? 'Modèle' : 'Sans titre'}
+					disabled={!isOnline}
 					class="min-w-0 flex-1 border-b border-transparent bg-transparent py-0.5 text-2xl font-bold tracking-tight transition-colors outline-none placeholder:text-muted-foreground/50 hover:border-border focus:border-foreground"
 				/>
 				{#if isDirty}
 					<div transition:fly={{ x: 8, duration: 150 }}>
-						<Button type="submit" size="sm" class="shrink-0">
+						<Button type="submit" size="sm" class="shrink-0" disabled={!isOnline}>
 							<Save />
 							<span class="hidden sm:inline"> Sauvegarder </span>
 						</Button>
@@ -232,13 +234,19 @@
 			transition:fly={{ y: -6, duration: 180 }}
 			class="mt-4 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3"
 		>
-			<p class="text-sm text-destructive">Supprimer cette liste définitivement ?</p>
+			<p class="text-sm text-destructive">
+				{list.is_template
+					? 'Supprimer ce modèle définitivement ?'
+					: 'Supprimer cette liste définitivement ?'}
+			</p>
 			<div class="flex shrink-0 items-center gap-2">
 				<Button type="button" variant="ghost" size="sm" onclick={() => (confirmDelete = false)}>
 					Annuler
 				</Button>
 				<form method="POST" action="?/delete" use:enhance>
-					<Button type="submit" variant="destructive" size="sm">Supprimer</Button>
+					<Button type="submit" variant="destructive" size="sm" disabled={!isOnline}>
+						Supprimer
+					</Button>
 				</form>
 			</div>
 		</div>

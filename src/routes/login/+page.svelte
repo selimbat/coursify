@@ -25,7 +25,7 @@
 			>
 				<ShoppingCart class="size-6" />
 			</div>
-			<h1 class="text-2xl font-bold tracking-tight">Coursify</h1>
+			<h1 class="text-2xl font-bold tracking-tight">Sparfux</h1>
 		</div>
 
 		<Card>

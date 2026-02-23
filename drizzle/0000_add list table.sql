@@ -1,5 +1,5 @@
 CREATE TYPE "public"."last_modified_by_user" AS ENUM('user_a', 'user_b');--> statement-breakpoint
-CREATE TYPE "public"."list_status" AS ENUM('ongoing', 'pending', 'done');--> statement-breakpoint
+CREATE TYPE "public"."list_status" AS ENUM('ongoing', 'done');--> statement-breakpoint
 CREATE TABLE "lists" (
 	"id" text PRIMARY KEY NOT NULL,
 	"title" text DEFAULT '' NOT NULL,

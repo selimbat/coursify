@@ -1,6 +1,6 @@
 import { pgTable, text, boolean, timestamp, pgEnum } from 'drizzle-orm/pg-core';
 
-export const listStatusEnum = pgEnum('list_status', ['ongoing', 'pending', 'done']);
+export const listStatusEnum = pgEnum('list_status', ['ongoing', 'done']);
 export const lastModifiedByEnum = pgEnum('last_modified_by_user', ['user_a', 'user_b']);
 
 export const lists = pgTable('lists', {

@@ -86,7 +86,6 @@
       "schema": "public",
       "values": [
         "ongoing",
-        "pending",
         "done"
       ]
     }

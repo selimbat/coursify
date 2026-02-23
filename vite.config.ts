@@ -10,8 +10,8 @@ export default defineConfig({
         SvelteKitPWA({
             registerType: 'autoUpdate',
             manifest: {
-                name: 'Coursify',
-                short_name: 'Coursify',
+                name: 'Sparfux',
+                short_name: 'Sparfux',
                 description: 'Gérez vos listes de courses partagées',
                 theme_color: '#ffffff',
                 background_color: '#ffffff',

@@ -25,7 +25,7 @@ export function getPendingChange(listId: string): PendingChange | null {
 }
 
 /** Persist a pending markdown change for a list. */
-export function setPendingChange(listId: string, markdown: string): void {
+export function persistPendingChange(listId: string, markdown: string): void {
     try {
         const change: PendingChange = { markdown, savedAt: Date.now() };
         localStorage.setItem(KEY_PREFIX + listId, JSON.stringify(change));

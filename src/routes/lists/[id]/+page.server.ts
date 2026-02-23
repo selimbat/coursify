@@ -26,7 +26,7 @@ export const actions: Actions = {
 
         if (typeof title === 'string') patch.title = title.trim();
         // Status is meaningless for templates — only update for regular lists
-        if (!list.is_template && (status === 'ongoing' || status === 'pending' || status === 'done')) {
+        if (!list.is_template && (status === 'ongoing' || status === 'done')) {
             patch.status = status;
         }
 
@@ -51,9 +51,6 @@ export const actions: Actions = {
     delete: async ({ params }) => {
         const list = await getListById(params.id);
         if (!list) error(404, 'Liste introuvable');
-
-        // Prevent deletion of the template — it must remain accessible for new list creation
-        if (list.is_template) error(403, 'Impossible de supprimer le modèle de liste');
 
         await deleteList(params.id);
         redirect(303, '/');

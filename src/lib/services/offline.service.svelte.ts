@@ -71,13 +71,35 @@ class OfflineService {
 
     /**
      * Attach browser event listeners. Call once from the root layout's onMount.
+     * If the app starts online, any locally-pending changes are synced immediately.
      */
     init(): void {
         if (typeof window === 'undefined') return;
         this.#isOnline = navigator.onLine;
         window.addEventListener('online', this.#handleOnline);
         window.addEventListener('offline', this.#handleOffline);
+
+        // Sync pending changes on startup if we are already online.
+        if (navigator.onLine) {
+            this.#syncPending();
+        }
     }
+
+    readonly #syncPending = (): void => {
+        this.#reconnectInfo = { status: 'syncing', syncedCount: 0 };
+        syncAllPendingChanges().then((syncedCount) => {
+            if (syncedCount > 0) {
+                this.#reconnectInfo = { status: 'synced', syncedCount };
+                if (this.#resetTimer) clearTimeout(this.#resetTimer);
+                this.#resetTimer = setTimeout(() => {
+                    this.#reconnectInfo = { status: 'idle', syncedCount: 0 };
+                    this.#resetTimer = null;
+                }, 4000);
+            } else {
+                this.#reconnectInfo = { status: 'idle', syncedCount: 0 };
+            }
+        });
+    };
 
     readonly #handleOnline = (): void => {
         this.#isOnline = true;
@@ -86,17 +108,7 @@ class OfflineService {
         for (const cb of this.#onlineCallbacks) cb();
 
         // Kick off global sync for all pending changes across all lists.
-        this.#reconnectInfo = { status: 'syncing', syncedCount: 0 };
-        syncAllPendingChanges().then((syncedCount) => {
-            this.#reconnectInfo = { status: 'synced', syncedCount };
-
-            // Auto-reset after 4 s so the success chip fades away.
-            if (this.#resetTimer) clearTimeout(this.#resetTimer);
-            this.#resetTimer = setTimeout(() => {
-                this.#reconnectInfo = { status: 'idle', syncedCount: 0 };
-                this.#resetTimer = null;
-            }, 4000);
-        });
+        this.#syncPending();
     };
 
     readonly #handleOffline = (): void => {
