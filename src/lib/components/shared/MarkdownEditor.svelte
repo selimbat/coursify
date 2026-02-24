@@ -84,11 +84,19 @@
 		const el = inputRefs[i];
 		if (!el) return;
 
-		if (e.key === 'Enter' && !e.shiftKey) {
+		if (e.key === 'Enter') {
 			e.preventDefault();
 			const cursor = el.selectionStart ?? el.value.length;
 			const before = el.value.slice(0, cursor);
 			const after = el.value.slice(cursor);
+			// An empty unchecked checkbox — escape the list and give a plain empty line.
+			const isEmptyCheckbox = /^[-*]\s+\[ \]\s*$/.test(el.value.trim());
+			if (isEmptyCheckbox) {
+				lines[i] = '';
+				commit();
+				focusLine(i, 0);
+				return;
+			}
 			// If the current line is a checkbox, continue with a new unchecked one.
 			const isCheckbox = /^[-*]\s+\[[xX ]\]/.test(el.value.trim());
 			lines[i] = before;
@@ -112,6 +120,20 @@
 					prev.selectionStart = prev.selectionEnd = prevLen;
 				}
 			});
+		} else if (e.altKey && e.key === 'ArrowUp' && i > 0) {
+			e.preventDefault();
+			// Swap the current line with the one above it.
+			const cursor = el.selectionStart;
+			[lines[i - 1], lines[i]] = [lines[i], lines[i - 1]];
+			commit();
+			focusLine(i - 1, cursor);
+		} else if (e.altKey && e.key === 'ArrowDown' && i < lines.length - 1) {
+			e.preventDefault();
+			// Swap the current line with the one below it.
+			const cursor = el.selectionStart;
+			[lines[i], lines[i + 1]] = [lines[i + 1], lines[i]];
+			commit();
+			focusLine(i + 1, cursor);
 		} else if (e.key === 'ArrowUp' && i > 0) {
 			e.preventDefault();
 			// Preserve the cursor column in the line above (clamped to its length).
