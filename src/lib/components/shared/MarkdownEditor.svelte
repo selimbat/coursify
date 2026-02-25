@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tick } from 'svelte';
 	import { marked } from 'marked';
 
 	interface Props {
@@ -23,6 +22,31 @@
 	let activeIndex = $state<number | null>(null);
 	let inputRefs: Record<number, HTMLTextAreaElement | null> = {};
 
+	// ---------------------------------------------------------------------------
+	// Mobile touch tracking — used by the spacebar-drag cursor handler below.
+	// ---------------------------------------------------------------------------
+	let touchActive = false;
+	// Position of the cursor as of the last selectionchange event, for direction
+	// detection. Resets to -1 whenever we change the active line.
+	let prevCursorPos = -1;
+
+	$effect(() => {
+		const markTouchStart = () => {
+			touchActive = true;
+		};
+		const markTouchEnd = () => {
+			touchActive = false;
+		};
+		document.addEventListener('touchstart', markTouchStart, { passive: true });
+		document.addEventListener('touchend', markTouchEnd, { passive: true });
+		document.addEventListener('touchcancel', markTouchEnd, { passive: true });
+		return () => {
+			document.removeEventListener('touchstart', markTouchStart);
+			document.removeEventListener('touchend', markTouchEnd);
+			document.removeEventListener('touchcancel', markTouchEnd);
+		};
+	});
+
 	function attachRef(i: number) {
 		return (node: HTMLTextAreaElement) => {
 			inputRefs[i] = node;
@@ -42,16 +66,20 @@
 	}
 
 	// ---------------------------------------------------------------------------
-	// Focus management
-	// Sets activeIndex to bring a line into edit mode, then (after the DOM
-	// updates via tick()) focuses the newly rendered textarea and places the
-	// cursor. cursorPos defaults to end-of-line when omitted.
+	// Focus management — SYNCHRONOUS (no tick/await) so mobile browsers honour
+	// the .focus() call within the originating user-gesture handler.
+	//
+	// Strategy: textareas are always present in the DOM (just invisible via CSS
+	// when inactive), so inputRefs[index] is always populated and we can focus
+	// immediately without waiting for a DOM update.
 	// ---------------------------------------------------------------------------
-	async function focusLine(index: number, cursorPos?: number) {
+	function focusLine(index: number, cursorPos?: number) {
 		activeIndex = index;
-		await tick();
+		prevCursorPos = -1;
 		const el = inputRefs[index];
 		if (!el) return;
+		// autoResize before focus so the textarea has the right height the moment
+		// it becomes visible (avoids a one-frame height flash).
 		autoResize(el);
 		el.focus();
 		const pos = cursorPos ?? el.value.length;
@@ -59,7 +87,41 @@
 	}
 
 	// ---------------------------------------------------------------------------
-	// Textarea event handlers (active line only)
+	// Spacebar-drag / cursor-drag cross-line navigation (mobile only).
+	//
+	// On iOS/Android, holding the spacebar and dragging moves the cursor inside
+	// a textarea. When the cursor reaches position 0 coming from position 1 (i.e.
+	// the user is still dragging backward), we jump to the end of the previous
+	// line. Symmetrically at the end of the line for the next line.
+	// The touchActive guard prevents this from firing on physical-keyboard use.
+	// ---------------------------------------------------------------------------
+	function handleSelectionChange(i: number) {
+		if (!touchActive || activeIndex !== i) return;
+		const el = inputRefs[i];
+		if (!el || document.activeElement !== el) return;
+
+		const pos = el.selectionStart ?? 0;
+		const prev = prevCursorPos;
+		prevCursorPos = pos;
+
+		if (prev < 0) return; // Ignore the initial cursor placement on focus.
+
+		// Dragged backward past the start of the line → jump to end of previous.
+		if (pos === 0 && prev <= 1 && i > 0) {
+			prevCursorPos = -1;
+			focusLine(i - 1, lines[i - 1].length);
+			return;
+		}
+		// Dragged forward past the end of the line → jump to start of next.
+		const lineLen = el.value.length;
+		if (pos === lineLen && prev >= lineLen - 1 && i < lines.length - 1) {
+			prevCursorPos = -1;
+			focusLine(i + 1, 0);
+		}
+	}
+
+	// ---------------------------------------------------------------------------
+	// Textarea event handlers
 	// ---------------------------------------------------------------------------
 
 	// Keep the line content and the textarea height in sync as the user types.
@@ -100,7 +162,7 @@
 			// If the current line is a checkbox, continue with a new unchecked one.
 			const isCheckbox = /^[-*]\s+\[[xX ]\]/.test(el.value.trim());
 			lines[i] = before;
-			lines.splice(i + 1, 0, isCheckbox ? `- [ ] ${after}` : after);
+			lines.splice(i + 1, 0, isCheckbox && cursor > 5 ? `- [ ] ${after}` : after);
 			commit();
 			focusLine(i + 1, isCheckbox ? 6 : 0);
 		} else if (e.key === 'Backspace' && el.selectionStart === 0 && el.selectionEnd === 0 && i > 0) {
@@ -111,15 +173,14 @@
 			lines[i - 1] = lines[i - 1] + lines[i];
 			lines.splice(i, 1);
 			commit();
+			// Synchronous focus — the prev textarea is always in the DOM.
 			activeIndex = i - 1;
-			tick().then(() => {
-				const prev = inputRefs[i - 1];
-				if (prev) {
-					autoResize(prev);
-					prev.focus();
-					prev.selectionStart = prev.selectionEnd = prevLen;
-				}
-			});
+			const prev = inputRefs[i - 1];
+			if (prev) {
+				autoResize(prev);
+				prev.focus();
+				prev.selectionStart = prev.selectionEnd = prevLen;
+			}
 		} else if (e.altKey && e.key === 'ArrowUp' && i > 0) {
 			e.preventDefault();
 			// Swap the current line with the one above it.
@@ -142,6 +203,19 @@
 			e.preventDefault();
 			// Preserve the cursor column in the line below (clamped to its length).
 			focusLine(i + 1, el.selectionStart);
+		} else if (e.key === 'ArrowLeft' && el.selectionStart === 0 && el.selectionEnd === 0 && i > 0) {
+			e.preventDefault();
+			// At the very start of a line → jump to the end of the previous line.
+			focusLine(i - 1, lines[i - 1].length);
+		} else if (
+			e.key === 'ArrowRight' &&
+			el.selectionStart === el.value.length &&
+			el.selectionEnd === el.value.length &&
+			i < lines.length - 1
+		) {
+			e.preventDefault();
+			// At the very end of a line → jump to the start of the next line.
+			focusLine(i + 1, 0);
 		}
 	}
 
@@ -240,10 +314,12 @@
 
 <!--
   Typora-style block editor:
-    - The active line (activeIndex) renders as a raw-markdown monospace textarea.
+    - The active line renders as a raw-markdown monospace textarea.
     - All other lines render as styled HTML (heading, checkbox, list item, text).
-    - Clicking / pressing Enter on the container itself (not a child element)
-      focuses the last line so the editor feels like a contiguous text area.
+    - IMPORTANT: every line's textarea is always present in the DOM (just hidden
+      via CSS when inactive). This lets focusLine() call .focus() synchronously
+      within the originating user-gesture handler — required for mobile browsers
+      to honour the programmatic focus and keep the virtual keyboard open.
 -->
 <div
 	data-markdown-editor
@@ -276,81 +352,102 @@
 		</p>
 	{/if}
 
-	<!-- Line loop — each line is either an editable textarea (active) or rendered HTML. -->
+	<!--
+	  Line loop.
+	  Each line is a `relative` wrapper containing:
+	    1. A textarea that is ALWAYS in the DOM.
+	       - Active   → normal block flow, fully visible, monospace.
+	       - Inactive → absolute overlay, opacity-0, pointer-events-none.
+	         Still focusable via JS so focusLine() works synchronously.
+	    2. The rendered HTML view, shown only when the line is inactive.
+	       It provides the layout height for inactive lines (the textarea
+	       is absolute and therefore out of normal flow when inactive).
+	-->
 	{#each lines as line, i (i)}
-		{#if activeIndex === i}
-			<!-- Active line: raw markdown in a monospace auto-growing textarea. -->
-			<div class="-mx-1 rounded-sm px-1">
-				<textarea
-					{@attach attachRef(i)}
-					value={line}
-					oninput={(e) => handleInput(i, e)}
-					onkeydown={(e) => handleKeydown(i, e)}
-					onblur={(e) => handleBlur(i, e)}
-					rows={1}
-					autocapitalize="off"
-					spellcheck={false}
-					class="block w-full resize-none overflow-hidden border-none bg-transparent font-mono text-sm leading-6 outline-none"
-				></textarea>
-			</div>
-		{:else}
-			<!-- Inactive line: parse and render according to markdown syntax. -->
-			{@const parsed = parseLine(line)}
+		<div class="relative">
+			<!-- Textarea: always present. Visible ↔ invisible via class swap. -->
+			<textarea
+				{@attach attachRef(i)}
+				value={line}
+				oninput={(e) => handleInput(i, e)}
+				onkeydown={(e) => handleKeydown(i, e)}
+				onblur={(e) => handleBlur(i, e)}
+				onselectionchange={() => handleSelectionChange(i)}
+				rows={1}
+				autocapitalize="off"
+				spellcheck={false}
+				class={activeIndex === i
+					? '-mx-1 block w-full resize-none overflow-hidden rounded-sm border-none bg-transparent px-1 font-mono text-sm leading-6 outline-none'
+					: 'pointer-events-none absolute inset-0 -z-10 resize-none overflow-hidden opacity-0'}
+			></textarea>
 
-			{#if parsed.type === 'empty'}
-				<div
-					class="h-6 w-full"
-					role="button"
-					tabindex="-1"
-					aria-label="Ligne vide — cliquer pour éditer"
-					onclick={() => focusLine(i)}
-					onkeydown={(e) => activateOnKey(i, e)}
-				></div>
-			{:else if parsed.type === 'checkbox'}
-				<div class="flex items-start gap-2 py-0.5">
-					<input
-						type="checkbox"
-						checked={parsed.checked}
-						onchange={() => toggleCheckbox(i)}
-						onclick={(e) => e.stopPropagation()}
-						class="mt-1 size-4 shrink-0 cursor-pointer accent-foreground"
-					/>
+			<!-- Rendered view: only when line is NOT active. -->
+			{#if activeIndex !== i}
+				{@const parsed = parseLine(line)}
+
+				{#if parsed.type === 'empty'}
+					<!-- Empty lines get a generous tap target so they're easy to hit on mobile. -->
+					<div
+						class="h-6 w-full"
+						role="button"
+						tabindex="-1"
+						aria-label="Ligne vide — cliquer pour éditer"
+						onclick={() => focusLine(i)}
+						onkeydown={(e) => activateOnKey(i, e)}
+					></div>
+				{:else if parsed.type === 'checkbox'}
+					<div class="flex items-start gap-2 py-0.5">
+						<input
+							type="checkbox"
+							checked={parsed.checked}
+							onchange={() => toggleCheckbox(i)}
+							onclick={(e) => e.stopPropagation()}
+							class="mt-1 size-4 shrink-0 cursor-pointer accent-foreground"
+						/>
+						<button
+							type="button"
+							class={`flex-1 cursor-text text-left text-sm leading-6 ${parsed.checked ? 'text-muted-foreground line-through' : ''}`}
+							onclick={() => focusLine(i)}
+						>
+							{#if parsed.html}
+								{@html parsed.html}
+							{:else}
+								<!-- Empty checkbox label — still a full-height tap target. -->
+								<span class="block h-6"></span>
+							{/if}
+						</button>
+					</div>
+				{:else if parsed.type === 'heading'}
 					<button
 						type="button"
-						class={`flex-1 cursor-text text-left text-sm leading-6 ${parsed.checked ? 'text-muted-foreground line-through' : ''}`}
-						onclick={() => focusLine(i)}>{@html parsed.html}</button
+						class={`${headingClass[parsed.level] ?? headingClass[6]} block w-full cursor-text text-left`}
+						onclick={() => focusLine(i)}
 					>
-				</div>
-			{:else if parsed.type === 'heading'}
-				<button
-					type="button"
-					class={`${headingClass[parsed.level] ?? headingClass[6]} block w-full cursor-text text-left`}
-					onclick={() => focusLine(i)}
-				>
-					{@html parsed.html}
-				</button>
-			{:else if parsed.type === 'listItem'}
-				<button
-					type="button"
-					class="flex w-full cursor-text items-start gap-2 py-0.5 text-left"
-					onclick={() => focusLine(i)}
-				>
-					<span class="mt-2.5 size-1.5 shrink-0 rounded-full bg-foreground/60"></span>
-					<span class="flex-1 text-sm leading-6">{@html parsed.html}</span>
-				</button>
-			{:else}
-				<button
-					type="button"
-					class="block w-full cursor-text text-left text-sm leading-6"
-					onclick={() => focusLine(i)}
-				>
-					{@html parsed.html}
-				</button>
+						{@html parsed.html}
+					</button>
+				{:else if parsed.type === 'listItem'}
+					<button
+						type="button"
+						class="flex w-full cursor-text items-start gap-2 py-0.5 text-left"
+						onclick={() => focusLine(i)}
+					>
+						<span class="mt-2.5 size-1.5 shrink-0 rounded-full bg-foreground/60"></span>
+						<span class="flex-1 text-sm leading-6">{@html parsed.html}</span>
+					</button>
+				{:else}
+					<button
+						type="button"
+						class="block w-full cursor-text text-left text-sm leading-6"
+						onclick={() => focusLine(i)}
+					>
+						{@html parsed.html}
+					</button>
+				{/if}
 			{/if}
-		{/if}
+		</div>
 	{/each}
 
-	<!-- Bottom padding zone: clicking the empty space below all lines focuses
+	<!-- Bottom padding zone: tapping the empty space below all lines focuses
 	     the last line, making the editor feel like a full-height text area. -->
 	<div
 		class="h-10 w-full"
