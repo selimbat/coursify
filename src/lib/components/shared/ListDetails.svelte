@@ -2,15 +2,13 @@
 	import { untrack, tick, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { ArrowLeft, Calendar, BookTemplate, Save, Trash2, CloudOff } from '@lucide/svelte';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import MarkdownEditor from '$lib/components/shared/MarkdownEditor.svelte';
 	import type { ActiveUser } from '$lib/services/user.service.svelte';
-	import {
-		getPendingChange,
-		persistPendingChange,
-		clearPendingChange
-	} from '$lib/services/pending-changes.service';
+	import { getPendingChange, clearPendingChange } from '$lib/services/pending-changes.service';
 	import { offlineService } from '$lib/services/offline.service.svelte';
 
 	type ListStatus = 'ongoing' | 'done';
@@ -65,6 +63,15 @@
 	/** Briefly true after a successful save — drives the green confirmation flash. */
 	let justSynced = $state(false);
 
+	// Floating save button — visible when the inline save area is scrolled out of view.
+	let isSentinelVisible = $state(true);
+
+	// Unsaved-changes navigation guard.
+	let showUnsavedDialog = $state(false);
+	let pendingNavigationUrl: string | null = null;
+	let bypassNavGuard = false;
+	let navigateAfterSave = false;
+
 	// Only the title triggers the manual save button; status submits immediately.
 	let isDirty = $derived(title !== list.title);
 	let isMarkdownDirty = $derived(markdown !== list.markdown);
@@ -84,6 +91,7 @@
 	//  - we restored an unsynced change from localStorage, OR
 	//  - we are currently offline and have unsaved edits.
 	let hasPendingOfflineChanges = $derived(hasRestoredChanges || (!isOnline && isMarkdownDirty));
+	let showFloatingSaveButton = $derived(isMarkdownDirty && isOnline && !isSentinelVisible);
 
 	onMount(() => {
 		// When connectivity is restored, submit this list's form so the enhance
@@ -95,7 +103,15 @@
 			}
 		});
 
-		return unsubOnline;
+		const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+			if (isMarkdownDirty) e.preventDefault();
+		};
+		window.addEventListener('beforeunload', handleBeforeUnload);
+
+		return () => {
+			unsubOnline();
+			window.removeEventListener('beforeunload', handleBeforeUnload);
+		};
 	});
 
 	// When offline and the markdown has been edited, persist locally so changes
@@ -111,6 +127,35 @@
 			}
 		}
 	});
+
+	beforeNavigate(({ cancel, to }) => {
+		if (isMarkdownDirty && !bypassNavGuard) {
+			cancel();
+			pendingNavigationUrl = to?.url ? to.url.pathname + to.url.search + to.url.hash : null;
+			showUnsavedDialog = true;
+		}
+	});
+
+	function handleLeaveAnyway() {
+		showUnsavedDialog = false;
+		bypassNavGuard = true;
+		goto(pendingNavigationUrl ?? '/');
+	}
+
+	function handleSaveAndLeave() {
+		if (!markdownFormRef) {
+			handleLeaveAnyway();
+			return;
+		}
+		showUnsavedDialog = false;
+		navigateAfterSave = true;
+		markdownFormRef.requestSubmit();
+	}
+
+	function handleCancelLeave() {
+		showUnsavedDialog = false;
+		pendingNavigationUrl = null;
+	}
 
 	function handleMarkdownKeydown(e: KeyboardEvent) {
 		if ((e.ctrlKey || e.metaKey) && e.key === 's' && isMarkdownDirty) {
@@ -274,6 +319,13 @@
 					hasRestoredChanges = false;
 					justSynced = true;
 					setTimeout(() => (justSynced = false), 3000);
+					if (navigateAfterSave && pendingNavigationUrl) {
+						navigateAfterSave = false;
+						bypassNavGuard = true;
+						await goto(pendingNavigationUrl);
+					}
+				} else {
+					navigateAfterSave = false;
 				}
 			};
 		}}
@@ -288,6 +340,19 @@
 - [ ] Article 2"
 			class="min-h-48"
 		/>
+
+		<div
+			{@attach (node) => {
+				const observer = new IntersectionObserver(
+					([entry]) => {
+						isSentinelVisible = entry.isIntersecting;
+					},
+					{ threshold: 0 }
+				);
+				observer.observe(node);
+				return () => observer.disconnect();
+			}}
+		></div>
 
 		{#if hasPendingOfflineChanges && !isMarkdownDirty}
 			<div
@@ -316,7 +381,7 @@
 		{#if isMarkdownDirty}
 			<div
 				transition:fly={{ y: 6, duration: 150 }}
-				class="mt-3 flex items-center justify-between gap-3"
+				class="mx-3 mt-3 flex items-center justify-between gap-3"
 			>
 				<p class="text-xs text-muted-foreground">
 					{#if !isOnline}
@@ -343,4 +408,43 @@
 			</div>
 		{/if}
 	</form>
+
+	<!-- Floating save button — shown when the inline save row is scrolled out of view -->
+	{#if showFloatingSaveButton}
+		<div
+			transition:fly={{ y: 16, duration: 200 }}
+			class="pointer-events-none fixed right-0 bottom-20 z-50 mr-7 flex justify-center md:bottom-6 md:mr-14"
+		>
+			<Button
+				type="button"
+				size="sm"
+				disabled={isSavingMarkdown}
+				onclick={() => markdownFormRef?.requestSubmit()}
+				class="pointer-events-auto shadow-lg"
+			>
+				<Save />
+				{isSavingMarkdown ? 'Sauvegarde…' : 'Sauvegarder'}
+			</Button>
+		</div>
+	{/if}
 </div>
+
+<!-- Unsaved changes confirmation dialog -->
+<Dialog.Root bind:open={showUnsavedDialog}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Modifications non sauvegardées</Dialog.Title>
+			<Dialog.Description>
+				Vous avez des modifications non sauvegardées. Que souhaitez-vous faire ?
+			</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer class="flex-col sm:flex-col">
+			<Button onclick={handleSaveAndLeave}>
+				<Save />
+				Sauvegarder et quitter
+			</Button>
+			<Button variant="outline" onclick={handleLeaveAnyway}>Quitter sans sauvegarder</Button>
+			<Button variant="ghost" onclick={handleCancelLeave}>Rester sur la page</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
