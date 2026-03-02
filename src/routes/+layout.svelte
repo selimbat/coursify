@@ -14,7 +14,7 @@
 
 	const webManifestLink = pwaInfo ? pwaInfo.webManifest.linkTag : '';
 
-	let { children } = $props();
+	let { children, data } = $props();
 
 	let mounted = $state(false);
 
@@ -26,10 +26,7 @@
 		registerSW({ immediate: true });
 	});
 
-	const userLabels: Record<ActiveUser, string> = {
-		user_a: 'Anna',
-		user_b: 'Selim'
-	};
+	const userLabels = $derived(data.userLabels);
 
 	function selectUser(user: ActiveUser) {
 		userService.setActiveUser(user);

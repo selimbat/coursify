@@ -2,17 +2,55 @@
 
 Shared shopping list application for couples. Manage grocery lists together with offline support and simple Markdown-based editing.
 
-## Overview
+## Key features
 
-- **Tech Stack**: SvelteKit (full-stack) + PostgreSQL
-- **Design**: Mobile-first PWA
-- **Auth**: Shared passphrase (minimal auth)
-- **Data Format**: Markdown
+- Simple auth with a shared passphrase
+- Multiple shared shopping lists
+- List templates
+- Importing unchecked items from previous lists
+- Smart markdown editor with live preview
+- Mobile design first
+- PWA
+- Light/dark mode
+- Offline editing
+
+### Shared shopping lists
+![list of shopping lists](image.png)
+
+### Live markdown editor
+![live markdown editor](live-markdown-editor.gif)
+
+### Shopping lists templates
+Possibility to import unbought items from previous lists.
+
+![list templates](image-1.png)
 
 ## Prerequisites
 
 - **Node.js** 18+ 
 - **PostgreSQL** 12+ (local installation or Docker)
+
+## Install
+
+Clone the repo then:
+```
+npm install
+```
+
+Create a postgresql database and user.
+Add the database URL to the .env file.
+
+Set up a passphrase that will be used as an auth method:
+```
+node -e "const{createHash}=require('crypto');console.log(createHash('sha256').update('YOUR_PASSPHRASE').digest('hex'))"
+```
+Paste the result into a `PASSPHRASE_HASH` variable in the .env file
+
+Add a JWT secret to the .env file
+```
+openssl rand -hex 32
+```
+
 
 ## Project Structure
 
@@ -50,11 +88,3 @@ coursify/
 └── README.md
 ```
 
-## Next Steps
-
-See [technical-spec.md](docs/technical-spec.md) for the full development roadmap and upcoming stories.
-
----
-
-**Version**: 0.1.0  
-**Status**: Story 1 - Initializing SvelteKit + PostgreSQL local ✓
