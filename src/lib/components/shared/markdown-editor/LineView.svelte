@@ -31,7 +31,7 @@
 			checked={parsed.checked}
 			onchange={() => onToggleCheckbox(index)}
 			onclick={(event) => event.stopPropagation()}
-			class="mt-1 size-4 shrink-0 cursor-pointer accent-foreground"
+			class="mt-1 size-4 shrink-0 cursor-pointer accent-muted"
 		/>
 		<button
 			type="button"
