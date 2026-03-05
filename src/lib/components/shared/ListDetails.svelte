@@ -6,7 +6,7 @@
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import MarkdownEditor from '$lib/components/shared/MarkdownEditor.svelte';
+	import MarkdownEditor from '$lib/components/shared/markdown-editor/MarkdownEditor.svelte';
 	import type { ActiveUser } from '$lib/services/user.service.svelte';
 	import { getPendingChange, clearPendingChange } from '$lib/services/pending-changes.service';
 	import { offlineService } from '$lib/services/offline.service.svelte';
